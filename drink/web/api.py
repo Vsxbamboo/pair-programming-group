@@ -75,6 +75,12 @@ def create_app(system: System, *, demo: bool = True) -> Flask:
     def admin_page():
         return send_from_directory(STATIC_DIR, "admin.html")
 
+    # ---------------- 通用 ----------------
+    @api.get("/config")
+    def config():
+        return ok({"demo": demo, "machine_id": s.machine.machine_id,
+                   "payment_method": s.payment.method})
+
     # ---------------- 顾客 ----------------
     @api.get("/menu")
     def menu():

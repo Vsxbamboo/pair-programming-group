@@ -79,6 +79,11 @@ class TestCustomer:
         r = client.post(f"/api/orders/{oid}/cancel")
         assert (r.status_code, error_code(r)) == (409, "INVALID_STATE")
 
+    def test_config(self, client, system):
+        assert client.get("/api/config").get_json() == {
+            "demo": True, "machine_id": "M001", "payment_method": "mock"}
+        assert create_app(system, demo=False).test_client().get("/api/config").get_json()["demo"] is False
+
     def test_machine(self, client):
         assert client.get("/api/machine").get_json() == {
             "machine_id": "M001", "online": True, "busy": False, "faults": []}

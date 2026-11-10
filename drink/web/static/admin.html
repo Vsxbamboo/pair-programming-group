@@ -1,79 +1,111 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>饮料机 · 维护</title>
-<link rel="stylesheet" href="/static/css/base.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>一杯 · 维护台</title>
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/admin.css">
+  <script type="module" src="/static/js/admin.js"></script>
 </head>
 <body>
-<!-- 最简可用版维护页：用于联调和验收后端。正式界面由 A 重做。 -->
-<header><h1>维护台</h1><a href="/">← 点单页</a></header>
-<p id="msg" class="msg"></p>
-<main class="grid">
-  <section class="card">
-    <h2>机器</h2>
-    <p id="machine"></p>
-    <button id="clear">排除全部故障</button>
-    <details><summary>演示：注入故障</summary><div id="faults" class="choices"></div></details>
-  </section>
-  <section class="card">
-    <h2>补货</h2>
-    <select id="material"></select>
-    <input id="qty" type="number" min="1" placeholder="数量">
-    <input id="operator" placeholder="操作人">
-    <button id="restock">登记补货</button>
-    <h3>最近补货</h3><ul id="restocks"></ul>
-  </section>
-  <section class="card wide">
-    <h2>库存</h2>
-    <table><thead><tr><th>原料</th><th>数量</th><th>容量</th><th>预警线</th><th>状态</th></tr></thead><tbody id="stock"></tbody></table>
-  </section>
-  <section class="card wide">
-    <h2>异常订单（制作失败）</h2>
-    <table><thead><tr><th>订单号</th><th>金额</th><th>原因</th><th></th></tr></thead><tbody id="failed"></tbody></table>
-  </section>
-  <section class="card wide">
-    <h2>销售概况（全部时间）</h2>
-    <div id="stats"></div>
-  </section>
-</main>
-<script type="module">
-import * as api from '/static/js/api.js';
-const { yuan, LABELS } = api;
-const $ = id => document.getElementById(id);
-const td = text => Object.assign(document.createElement('td'), { textContent: text });
-const tr = cells => { const r = document.createElement('tr'); r.append(...cells); return r; };
-const show = p => p.then(refresh).catch(e => $('msg').textContent = `${e.code}：${e.message}`);
+  <header class="topbar">
+    <span class="brand"><span class="brand-mark">杯</span><span>一杯 · 维护台<span class="brand-en">YIBEI / OPERATIONS</span></span></span>
+    <div class="topbar-right">
+      <span id="machine-pill" class="pill"><i></i><span>连接中…</span></span>
+      <a class="btn ghost small" href="/">点单页 →</a>
+    </div>
+  </header>
 
-async function refresh() {
-  const [stock, m, failed, restocks, stats] = await Promise.all([
-    api.getStock(), api.getMachine(), api.getOrders('PRODUCTION_FAILED'), api.getRestocks(5), api.getStats()]);
-  $('stock').replaceChildren(...stock.map(s => {
-    const row = tr([td(s.material.name), td(`${s.quantity} ${s.material.unit}`), td(s.material.capacity), td(s.material.warn_threshold), td(LABELS[s.status])]);
-    row.className = s.status.toLowerCase(); return row;
-  }));
-  if (!$('material').options.length)
-    $('material').replaceChildren(...stock.map(s => new Option(s.material.name, s.material.id)));
-  $('machine').textContent = m.online ? (m.busy ? '在线 · 制作中' : '在线 · 空闲') : `故障：${m.faults.map(f => LABELS[f]).join('、')}`;
-  $('failed').replaceChildren(...failed.map(o => {
-    const b = Object.assign(document.createElement('button'), { textContent: '退款' });
-    b.onclick = () => show(api.refund(o.order_id, $('operator').value || '维护人员'));
-    const c = document.createElement('td'); c.append(b);
-    return tr([td(o.order_id), td(yuan(o.total_fen)), td(o.failure_reason), c]);
-  }));
-  $('restocks').replaceChildren(...restocks.map(r => Object.assign(document.createElement('li'), {
-    textContent: `${new Date(r.created_at).toLocaleString()} ${r.operator} 补 ${r.material_id} ×${r.quantity}` })));
-  $('stats').textContent = `完成 ${stats.order_count} 杯，收入 ${yuan(stats.revenue_fen)}；热门：` +
-    (stats.top_combos.map(c => `${c.label}（${c.count}）`).join('，') || '暂无');
-}
+  <div class="toolbar">
+    <h1>今日运营<small id="updated-at"></small></h1>
+    <label class="operator">操作人 <input id="operator" type="text" placeholder="填写你的名字" maxlength="20"></label>
+  </div>
 
-$('faults').replaceChildren(...['CUP_JAM', 'OUT_OF_CUPS', 'WATER_TEMP_LOW', 'PUMP_ERROR'].map(code =>
-  Object.assign(document.createElement('button'), { textContent: LABELS[code], className: 'secondary', onclick: () => show(api.devFault(code)) })));
-$('clear').onclick = () => show(api.clearFault());
-$('restock').onclick = () => show(api.restock($('material').value, Number($('qty').value), $('operator').value));
-refresh();
-setInterval(() => refresh().catch(() => {}), 3000);
-</script>
+  <main class="board">
+    <section class="span-12 kpis" aria-label="今日概况">
+      <div class="kpi"><span>今日杯数</span><b id="kpi-cups">—</b><small>已完成订单</small></div>
+      <div class="kpi"><span>今日收入</span><b id="kpi-revenue">—</b><small>不含退款与取消</small></div>
+      <div class="kpi"><span>客单价</span><b id="kpi-avg">—</b><small>今日平均每杯</small></div>
+      <div class="kpi" id="kpi-stock-box"><span>库存预警</span><b id="kpi-stock">—</b><small>偏低或缺货的原料</small></div>
+      <div class="kpi" id="kpi-failed-box"><span>待处理订单</span><b id="kpi-failed">—</b><small>制作失败、未退款</small></div>
+    </section>
+
+    <section class="card span-4" aria-labelledby="machine-title">
+      <div class="card-head"><h2 id="machine-title">机器状态</h2><small id="machine-id"></small></div>
+      <div class="machine-state">
+        <div id="machine-dot" class="machine-dot">✓</div>
+        <div><strong id="machine-text">—</strong><small id="machine-sub"></small></div>
+      </div>
+      <div id="fault-list" class="fault-list"></div>
+      <button id="clear-all" type="button" class="btn ghost" hidden>排除全部故障</button>
+      <details id="demo-box" class="demo-box" hidden>
+        <summary>演示：注入故障</summary>
+        <div id="demo-faults" class="row"></div>
+      </details>
+    </section>
+
+    <section class="card span-4" aria-labelledby="restock-title">
+      <div class="card-head"><h2 id="restock-title">登记补货</h2><small>补货后立即生效</small></div>
+      <form id="restock-form" class="restock-form" novalidate>
+        <select id="material" aria-label="原料"></select>
+        <div class="row">
+          <input id="qty" type="number" min="1" step="1" placeholder="数量" aria-label="补货数量">
+          <button id="fill" type="button" class="btn ghost">补满</button>
+        </div>
+        <div id="room" class="room"></div>
+        <button type="submit" class="btn">登记补货</button>
+        <p id="restock-msg" class="form-msg" role="status" aria-live="polite"></p>
+      </form>
+      <ul id="restocks" class="mini-list"></ul>
+    </section>
+
+    <section class="card span-4" aria-labelledby="failed-title">
+      <div class="card-head"><h2 id="failed-title">待处理订单</h2><small>制作失败，需要退款</small></div>
+      <div id="failed-orders"></div>
+      <p id="refund-msg" class="form-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card span-7" aria-labelledby="stock-title">
+      <div class="card-head"><h2 id="stock-title">库存</h2><small>竖线为预警线</small></div>
+      <table class="stock-table">
+        <thead><tr><th>原料</th><th>余量</th><th>容量</th><th style="width:34%">水位</th><th>状态</th><th></th></tr></thead>
+        <tbody id="stock"></tbody>
+      </table>
+    </section>
+
+    <section class="card span-5" aria-labelledby="recent-title">
+      <div class="card-head"><h2 id="recent-title">最近订单</h2><small>本机最新 12 条</small></div>
+      <div id="recent-orders"></div>
+    </section>
+
+    <section class="card span-12" aria-labelledby="stats-title">
+      <div class="card-head">
+        <h2 id="stats-title">销售分析</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div class="seg-tabs" id="range-tabs">
+            <button type="button" data-range="today" class="on">今天</button>
+            <button type="button" data-range="7d">近 7 天</button>
+            <button type="button" data-range="all">全部</button>
+          </div>
+          <div class="seg-tabs" id="scope-tabs">
+            <button type="button" data-scope="machine" class="on">本机</button>
+            <button type="button" data-scope="all">全部机器</button>
+          </div>
+        </div>
+      </div>
+      <p id="stats-summary" class="meta" style="font-size:12px;color:var(--muted);margin:-4px 0 16px"></p>
+      <div class="analysis">
+        <div>
+          <h3>按小时分布（杯）</h3>
+          <div id="hour-chart" class="hour-chart"></div>
+          <div id="hour-axis" class="hour-axis"></div>
+        </div>
+        <div><h3>热门组合</h3><div id="combos" class="hbars"></div></div>
+        <div><h3>甜度偏好</h3><div id="sugars" class="hbars"></div></div>
+      </div>
+    </section>
+  </main>
+  <noscript>请启用 JavaScript 以使用维护台。</noscript>
 </body>
 </html>

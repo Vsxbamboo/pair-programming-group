@@ -31,6 +31,9 @@ const q = params => {
   return s.toString() ? `?${s}` : '';
 };
 
+// ---- 通用 ----
+export const getConfig = () => call('GET', '/config');
+
 // ---- 顾客 ----
 export const getMenu = () => call('GET', '/menu');
 export const getRecommendations = (limit = 3) => call('GET', `/recommendations${q({ limit })}`);
