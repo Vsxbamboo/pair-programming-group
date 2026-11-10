@@ -116,12 +116,12 @@ function renderMenu() {
   if (!state.menu) return;
   $('base-options').replaceChildren(...state.menu.bases.map(({ item, available }) => h('button', {
     type: 'button', class: 'base-card', disabled: !available, onclick: () => chooseBase(item.id),
-  },
+  }, h('span', { class: 'base-inner' },
     h('span', { class: 'swatch', style: { '--swatch': item.color }, 'aria-hidden': 'true' }, item.name.slice(-2, -1)),
     h('strong', {}, item.name),
     h('small', {}, item.description),
     h('b', {}, `${yuan(item.price_fen)} 起`),
-    available ? null : h('span', { class: 'tag bad' }, '售罄'))));
+    available ? null : h('span', { class: 'tag bad' }, '售罄')))));
 
   $('recommendations').replaceChildren(...(state.recs.length ? state.recs.map(rec => h('button', {
     type: 'button', class: 'rec', onclick: () => chooseRecipe(rec),
