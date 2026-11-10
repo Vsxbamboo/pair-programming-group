@@ -74,27 +74,29 @@ h2 small { font-size: .75rem; color: var(--muted); font-weight: 400; }
 .rec:active { border-color: var(--green); }
 .rec small { display: block; color: var(--muted); font-size: .72rem; margin-top: .2rem; }
 
-/* 2 定制 */
-.custom-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; }
+/* 2 定制：间距和按钮高度跟着屏幕高度收缩，矮屏也不用滑动 */
+.custom-head { display: flex; align-items: center; gap: 1rem; margin-bottom: clamp(.6rem, 2vh, 1.2rem); }
 .back { border: 1px solid var(--line-strong); background: var(--white); border-radius: .8rem; padding: .7rem 1rem; font-size: .9rem; min-height: 3rem; flex-shrink: 0; }
 .custom-drink { display: flex; align-items: center; gap: .9rem; min-width: 0; }
 .custom-drink h1 { font-size: 1.6rem; margin: 0; }
 .custom-drink p { margin: .2rem 0 0; font-size: .82rem; color: var(--muted); }
-.group { margin-bottom: 1.6rem; }
+.group { margin-bottom: clamp(.7rem, 2.2vh, 1.6rem); }
+.group h2 { margin-bottom: clamp(.4rem, 1vh, .7rem); }
 .options { display: grid; gap: .6rem; }
 .cols-2 { grid-template-columns: repeat(2, 1fr); }
 .cols-3 { grid-template-columns: repeat(3, 1fr); }
 .cols-4 { grid-template-columns: repeat(4, 1fr); }
 .opt {
-  border: 1px solid var(--line-strong); background: var(--paper); border-radius: .9rem; min-height: 4.2rem;
-  padding: .6rem .5rem; font-size: 1.05rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  border: 1px solid var(--line-strong); background: var(--paper); border-radius: .9rem; min-height: clamp(2.9rem, 6.5vh, 4.2rem);
+  padding: .45rem .5rem; font-size: 1.05rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
 }
 .opt small { font-size: .72rem; color: var(--muted); }
 .opt[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: #fff; }
 .opt[aria-pressed="true"] small { color: #e3ecd9; }
 .opt:disabled { opacity: .4; }
 .opt.blocked { text-decoration: line-through; }
-.hint { font-size: .8rem; color: var(--warn); margin: .45rem 0 0; min-height: 1rem; }
+.hint { font-size: .8rem; color: var(--warn); margin: .45rem 0 0; }
+.hint:empty { display: none; }
 
 /* 3 付款 */
 .qr-card { background: var(--white); border: 1px solid var(--line-strong); border-radius: 1.4rem; padding: 1.2rem 1.2rem 1rem; box-shadow: 0 .8rem 2rem #2944310d; }
@@ -171,6 +173,8 @@ h2 small { font-size: .75rem; color: var(--muted); font-weight: 400; }
 /* ---------- 横屏小屏（如 1280×800）：选饮品四列 ---------- */
 @media (orientation: landscape) and (min-aspect-ratio: 4/3) {
   .base-grid { grid-template-columns: repeat(4, 1fr); }
+  #screen-custom:not([hidden]) { display: grid; grid-template-columns: 1fr 1fr; column-gap: 2rem; align-content: start; }
+  .custom-head { grid-column: 1 / -1; }
   .screen { padding-left: 2.5rem; padding-right: 2.5rem; }
   .stage { height: 11rem; }
 }
