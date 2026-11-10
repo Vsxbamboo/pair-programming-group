@@ -16,7 +16,14 @@ pytest                             # 跑测试，最后会打印每个人的进�
 
 Windows 也可以直接双击 `start.bat`。
 
-常用启动参数：
+最普通的启动方式，什么参数都不用加：
+
+```bash
+python run.py                       # 然后浏览器打开 http://127.0.0.1:3000
+python run.py --open                # 同上，并自动弹出点单窗口
+```
+
+其余参数都是可选的，需要时再加：
 
 ```bash
 python run.py --lan                 # 手机和电脑连同一 Wi-Fi，可扫付款码打开“演示收银台”
