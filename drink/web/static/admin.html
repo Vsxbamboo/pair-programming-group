@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>饮料机 · 维护</title>
+<link rel="stylesheet" href="/static/css/base.css">
+</head>
+<body>
+<!-- 最简可用版维护页：用于联调和验收后端。正式界面由 A 重做。 -->
+<header><h1>维护台</h1><a href="/">← 点单页</a></header>
+<p id="msg" class="msg"></p>
+<main class="grid">
+  <section class="card">
+    <h2>机器</h2>
+    <p id="machine"></p>
+    <button id="clear">排除全部故障</button>
+    <details><summary>演示：注入故障</summary><div id="faults" class="choices"></div></details>
+  </section>
+  <section class="card">
+    <h2>补货</h2>
+    <select id="material"></select>
+    <input id="qty" type="number" min="1" placeholder="数量">
+    <input id="operator" placeholder="操作人">
+    <button id="restock">登记补货</button>
+    <h3>最近补货</h3><ul id="restocks"></ul>
+  </section>
+  <section class="card wide">
+    <h2>库存</h2>
+    <table><thead><tr><th>原料</th><th>数量</th><th>容量</th><th>预警线</th><th>状态</th></tr></thead><tbody id="stock"></tbody></table>
+  </section>
+  <section class="card wide">
+    <h2>异常订单（制作失败）</h2>
+    <table><thead><tr><th>订单号</th><th>金额</th><th>原因</th><th></th></tr></thead><tbody id="failed"></tbody></table>
+  </section>
+  <section class="card wide">
+    <h2>销售概况（全部时间）</h2>
+    <div id="stats"></div>
+  </section>
+</main>
+<script type="module">
+import * as api from '/static/js/api.js';
+const { yuan, LABELS } = api;
+const $ = id => document.getElementById(id);
+const td = text => Object.assign(document.createElement('td'), { textContent: text });
+const tr = cells => { const r = document.createElement('tr'); r.append(...cells); return r; };
+const show = p => p.then(refresh).catch(e => $('msg').textContent = `${e.code}：${e.message}`);
+
+async function refresh() {
+  const [stock, m, failed, restocks, stats] = await Promise.all([
+    api.getStock(), api.getMachine(), api.getOrders('PRODUCTION_FAILED'), api.getRestocks(5), api.getStats()]);
+  $('stock').replaceChildren(...stock.map(s => {
+    const row = tr([td(s.material.name), td(`${s.quantity} ${s.material.unit}`), td(s.material.capacity), td(s.material.warn_threshold), td(LABELS[s.status])]);
+    row.className = s.status.toLowerCase(); return row;
+  }));
+  if (!$('material').options.length)
+    $('material').replaceChildren(...stock.map(s => new Option(s.material.name, s.material.id)));
+  $('machine').textContent = m.online ? (m.busy ? '在线 · 制作中' : '在线 · 空闲') : `故障：${m.faults.map(f => LABELS[f]).join('、')}`;
+  $('failed').replaceChildren(...failed.map(o => {
+    const b = Object.assign(document.createElement('button'), { textContent: '退款' });
+    b.onclick = () => show(api.refund(o.order_id, $('operator').value || '维护人员'));
+    const c = document.createElement('td'); c.append(b);
+    return tr([td(o.order_id), td(yuan(o.total_fen)), td(o.failure_reason), c]);
+  }));
+  $('restocks').replaceChildren(...restocks.map(r => Object.assign(document.createElement('li'), {
+    textContent: `${new Date(r.created_at).toLocaleString()} ${r.operator} 补 ${r.material_id} ×${r.quantity}` })));
+  $('stats').textContent = `完成 ${stats.order_count} 杯，收入 ${yuan(stats.revenue_fen)}；热门：` +
+    (stats.top_combos.map(c => `${c.label}（${c.count}）`).join('，') || '暂无');
+}
+
+$('faults').replaceChildren(...['CUP_JAM', 'OUT_OF_CUPS', 'WATER_TEMP_LOW', 'PUMP_ERROR'].map(code =>
+  Object.assign(document.createElement('button'), { textContent: LABELS[code], className: 'secondary', onclick: () => show(api.devFault(code)) })));
+$('clear').onclick = () => show(api.clearFault());
+$('restock').onclick = () => show(api.restock($('material').value, Number($('qty').value), $('operator').value));
+refresh();
+setInterval(() => refresh().catch(() => {}), 3000);
+</script>
+</body>
+</html>

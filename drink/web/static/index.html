@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>饮料机 · 点单</title>
+<link rel="stylesheet" href="/static/css/base.css">
+</head>
+<body>
+<!-- 最简可用版点单页：用于联调和验收后端。正式界面由 A 重做（可参考 logisim/pair-programming-gui 原型）。 -->
+<header><h1>自助饮料机</h1><a href="/admin">维护页 →</a></header>
+<p id="machine" class="banner" hidden></p>
+<main class="two-col">
+  <section>
+    <h2>基底</h2><div id="bases" class="choices"></div>
+    <h2>加料</h2><div id="addons" class="choices"></div>
+    <h2>杯型 / 温度 / 甜度</h2>
+    <div id="size" class="choices"></div>
+    <div id="temperature" class="choices"></div>
+    <div id="sugar" class="choices"></div>
+    <h2>推荐</h2><div id="recs" class="choices"></div>
+  </section>
+  <section class="card">
+    <h2>你的这一杯</h2>
+    <div id="lines"></div>
+    <p class="total">合计 <b id="total">—</b></p>
+    <p id="msg" class="msg"></p>
+    <div id="pay" hidden>
+      <p>请扫码付款（演示：二维码内容如下）</p>
+      <code id="qr"></code>
+      <p>剩余 <b id="countdown"></b> 秒</p>
+      <button id="dev-pay" class="secondary">模拟扫码付款</button>
+      <button id="cancel" class="secondary">取消订单</button>
+    </div>
+    <progress id="progress" max="100" value="0" hidden></progress>
+    <button id="order">下单</button>
+  </section>
+</main>
+<script type="module">
+import * as api from '/static/js/api.js';
+const { yuan, LABELS } = api;
+const $ = id => document.getElementById(id);
+let menu, recipe, order = null, timer = null;
+
+function radios(target, values, key, label = v => LABELS[v] ?? v) {
+  $(target).replaceChildren(...values.map(v => {
+    const b = document.createElement('button');
+    b.textContent = label(v);
+    b.className = recipe[key] === v ? 'on' : '';
+    b.onclick = () => { recipe[key] = v; render(); };
+    return b;
+  }));
+}
+
+async function render() {
+  const busy = order && ['AWAITING_PAYMENT', 'PAID', 'MAKING'].includes(order.status);
+  $('bases').replaceChildren(...menu.bases.map(({ item, available }) => {
+    const b = document.createElement('button');
+    b.textContent = `${item.name} ${yuan(item.price_fen)}${available ? '' : '（售罄）'}`;
+    b.disabled = !available || busy;
+    b.className = recipe.base_id === item.id ? 'on' : '';
+    b.onclick = () => { recipe.base_id = item.id; render(); };
+    return b;
+  }));
+  $('addons').replaceChildren(...menu.addons.map(({ item, available }) => {
+    const b = document.createElement('button');
+    const on = recipe.addon_ids.includes(item.id);
+    b.textContent = `${item.name} +${yuan(item.price_fen)}${available ? '' : '（售罄）'}`;
+    b.disabled = (!available && !on) || busy;
+    b.className = on ? 'on' : '';
+    b.onclick = () => { recipe.addon_ids = on ? recipe.addon_ids.filter(x => x !== item.id) : [...recipe.addon_ids, item.id]; render(); };
+    return b;
+  }));
+  radios('size', menu.sizes, 'size');
+  radios('temperature', menu.temperatures, 'temperature');
+  radios('sugar', menu.sugars, 'sugar');
+  document.querySelectorAll('#size button, #temperature button, #sugar button').forEach(b => b.disabled = busy);
+  if (!order) {
+    try {
+      const q = await api.quote(recipe);
+      $('lines').replaceChildren(...q.lines.map(l => Object.assign(document.createElement('div'), { textContent: `${l.label}  ${yuan(l.price_fen)}` })));
+      $('total').textContent = yuan(q.total_fen); $('msg').textContent = ''; $('order').disabled = false;
+    } catch (e) { $('total').textContent = '—'; $('msg').textContent = e.message; $('order').disabled = true; }
+  }
+}
+
+async function poll() {
+  try {
+    order = await api.getOrder(order.order_id);
+  } catch (e) { $('msg').textContent = `查询失败：${e.message}，正在重试…`; return; }
+  const s = order.status;
+  $('pay').hidden = s !== 'AWAITING_PAYMENT';
+  $('countdown').textContent = Math.max(0, Math.round((order.expires_at - Date.now()) / 1000));
+  $('progress').hidden = s !== 'MAKING';
+  if (s === 'MAKING') {
+    const p = await api.getProgress(order.order_id).catch(() => null);
+    if (p) { $('progress').value = p.progress; $('msg').textContent = `制作中：${p.step}`; }
+    return;
+  }
+  const done = { COMPLETED: '做好了，请取杯！', PRODUCTION_FAILED: `制作失败：${order.failure_reason}。请联系工作人员，订单号 ${order.order_id}`,
+                 CANCELLED: '订单已取消', EXPIRED: '付款超时，订单已关闭' }[s];
+  if (s === 'AWAITING_PAYMENT') $('msg').textContent = '等待付款…';
+  if (done) {
+    clearInterval(timer); $('msg').textContent = done; $('order').hidden = false; $('order').textContent = '再来一杯';
+    $('order').onclick = reset;
+  }
+}
+
+function reset() { order = null; recipe = structuredClone(menu.default_recipe); $('order').textContent = '下单'; $('order').onclick = submit; $('progress').hidden = true; load(); }
+
+async function submit() {
+  try {
+    order = await api.createOrder(recipe);
+    $('qr').textContent = order.payment.qr_content; $('order').hidden = true;
+    timer = setInterval(poll, 1000); poll(); render();
+  } catch (e) {
+    $('msg').textContent = e.code === 'OUT_OF_STOCK' ? `原料不足（${e.details.missing.join('、')}），请换一种配方` : e.message;
+    load();
+  }
+}
+
+async function load() {
+  menu = await api.getMenu();
+  recipe ??= structuredClone(menu.default_recipe);
+  const m = await api.getMachine();
+  $('machine').hidden = m.online; $('machine').textContent = `暂停服务：${m.faults.map(f => LABELS[f]).join('、')}`;
+  const recs = await api.getRecommendations();
+  const names = Object.fromEntries([...menu.bases, ...menu.addons].map(e => [e.item.id, e.item.name]));
+  $('recs').replaceChildren(...recs.map(r => {
+    const b = document.createElement('button');
+    b.textContent = [names[r.base_id], ...r.addon_ids.map(a => names[a])].join(' + ') + ` · ${LABELS[r.sugar]}`;
+    b.onclick = () => { recipe = structuredClone(r); render(); };
+    return b;
+  }));
+  render();
+}
+
+$('order').onclick = submit;
+$('dev-pay').onclick = () => api.devPay(order.order_id).then(poll).catch(e => $('msg').textContent = e.message);
+$('cancel').onclick = () => api.cancelOrder(order.order_id).then(poll).catch(e => $('msg').textContent = e.message);
+load();
+</script>
+</body>
+</html>
