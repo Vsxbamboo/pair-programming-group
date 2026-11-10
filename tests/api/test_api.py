@@ -81,8 +81,21 @@ class TestCustomer:
 
     def test_config(self, client, system):
         assert client.get("/api/config").get_json() == {
-            "demo": True, "machine_id": "M001", "payment_method": "mock"}
+            "demo": True, "machine_id": "M001", "payment_method": "mock",
+            "pay_base_url": "http://localhost"}
         assert create_app(system, demo=False).test_client().get("/api/config").get_json()["demo"] is False
+
+    def test_config_public_url(self, system):
+        client = create_app(system, public_url="http://192.168.1.5:3000").test_client()
+        assert client.get("/api/config").get_json()["pay_base_url"] == "http://192.168.1.5:3000"
+
+    def test_qr_svg(self, client):
+        r = client.get("/api/qr.svg?text=http://192.168.1.5:3000/pay/M001-1")
+        assert r.status_code == 200 and r.mimetype == "image/svg+xml" and b"<svg" in r.data
+        assert error_code(client.get("/api/qr.svg")) == "INVALID_ARGUMENT"
+
+    def test_demo_cashier_page(self, client):
+        assert client.get("/pay/M001-1").status_code == 200
 
     def test_machine(self, client):
         assert client.get("/api/machine").get_json() == {

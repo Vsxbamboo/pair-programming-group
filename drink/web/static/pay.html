@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>一杯 · 演示收银台</title>
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <style>
+    body { display: grid; place-items: center; padding: 20px; }
+    .sheet { width: min(420px, 100%); background: var(--white); border: 1px solid var(--line-strong); border-radius: 18px; overflow: hidden; box-shadow: 0 12px 30px #29443112; }
+    .head { background: var(--green); color: #fff; padding: 18px 20px; display: flex; align-items: center; gap: 12px; }
+    .head .brand-mark { background: #fff; color: var(--green); width: 36px; height: 36px; font-size: 18px; }
+    .head b { display: block; font-size: 17px; }
+    .head small { opacity: .8; font-size: 12px; }
+    .notice { background: var(--warn-soft); color: var(--warn); font-size: 12px; padding: 10px 20px; line-height: 1.6; }
+    .body { padding: 22px 20px 24px; }
+    .amount { text-align: center; margin: 4px 0 18px; }
+    .amount span { font-size: 13px; color: var(--muted); }
+    .amount strong { display: block; font-size: 40px; letter-spacing: -1px; margin-top: 4px; }
+    .lines { border-top: 1px dashed var(--line-strong); border-bottom: 1px dashed var(--line-strong); padding: 12px 0; font-size: 14px; }
+    .lines div { display: flex; justify-content: space-between; margin: 6px 0; color: #5d6a61; }
+    .meta { font-size: 12px; color: var(--muted); margin: 12px 0 18px; word-break: break-all; }
+    .actions { display: grid; gap: 10px; }
+    .actions .btn { min-height: 52px; font-size: 16px; border-radius: 12px; }
+    .result { text-align: center; padding: 10px 0 4px; }
+    .result .icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 12px; font-size: 30px; color: #fff; background: #5f9156; }
+    .result.bad .icon { background: var(--bad); }
+    .result h2 { margin: 0 0 6px; font-size: 20px; }
+    .result p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="head"><span class="brand-mark">杯</span><span><b>一杯 · 演示收银台</b><small id="machine">自助饮料机</small></span></div>
+    <p class="notice">课程演示用的模拟付款页面，不会产生任何真实扣款，也不需要输入账号密码。</p>
+    <div class="body">
+      <div id="loading" class="result"><p>正在读取订单…</p></div>
+
+      <div id="order" hidden>
+        <div class="amount"><span>需付款</span><strong id="amount"></strong></div>
+        <div id="lines" class="lines"></div>
+        <p id="meta" class="meta"></p>
+        <div class="actions">
+          <button id="pay" type="button" class="btn">确认付款</button>
+          <button id="fail" type="button" class="btn ghost">模拟支付失败</button>
+        </div>
+      </div>
+
+      <div id="result" class="result" hidden>
+        <div class="icon" id="result-icon">✓</div>
+        <h2 id="result-title"></h2>
+        <p id="result-text"></p>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import * as api from '/static/js/api.js';
+    import { $, h, yuan, label } from '/static/js/ui.js';
+
+    const orderId = decodeURIComponent(location.pathname.split('/').pop());
+
+    function show(section) {
+      for (const id of ['loading', 'order', 'result']) $(id).hidden = id !== section;
+    }
+
+    function result(ok, title, text) {
+      $('result').className = `result${ok ? '' : ' bad'}`;
+      $('result-icon').textContent = ok ? '✓' : '!';
+      $('result-title').textContent = title;
+      $('result-text').textContent = text;
+      show('result');
+    }
+
+    function render(order) {
+      if (order.status === 'AWAITING_PAYMENT') {
+        $('amount').textContent = yuan(order.total_fen);
+        $('lines').replaceChildren(...order.lines.map(l => h('div', {}, h('span', {}, l.label), h('span', {}, yuan(l.price_fen)))));
+        const r = order.recipe;
+        $('meta').textContent = `${label(r.size)} · ${label(r.temperature)} · ${label(r.sugar)}　订单号 ${order.order_id}`;
+        $('machine').textContent = `自助饮料机 ${order.machine_id}`;
+        show('order');
+      } else if (['PAID', 'MAKING', 'COMPLETED'].includes(order.status)) {
+        result(true, '付款成功', '请回到饮料机前，等待出杯。');
+      } else if (order.status === 'EXPIRED') {
+        result(false, '订单已超时', '请回到饮料机重新下单。');
+      } else if (order.status === 'CANCELLED') {
+        result(false, '订单已取消', '没有产生扣款，可以回到饮料机重新下单。');
+      } else {
+        result(false, label(order.status), '请联系工作人员。');
+      }
+    }
+
+    async function load() {
+      try {
+        render(await api.getOrder(orderId));
+      } catch (err) {
+        result(false, '找不到这笔订单', err.code === 'NETWORK_ERROR' ? '手机连不上饮料机，请确认和饮料机在同一个 Wi-Fi。' : err.message);
+      }
+    }
+
+    async function act(fn) {
+      $('pay').disabled = $('fail').disabled = true;
+      try {
+        render(await fn(orderId));
+      } catch (err) {
+        result(false, '操作失败', err.code === 'NOT_FOUND' ? '当前不是演示模式，无法模拟付款。' : err.message);
+      }
+    }
+
+    $('pay').onclick = () => act(api.devPay);
+    $('fail').onclick = () => act(api.devClosePayment);
+    load();
+  </script>
+</body>
+</html>

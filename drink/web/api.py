@@ -7,9 +7,10 @@
 """
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
-from flask import Blueprint, Flask, jsonify, request, send_from_directory
+from flask import Blueprint, Flask, Response, jsonify, request, send_from_directory
 
 from drink.model import DrinkError, ErrorCode, FaultCode, OrderStatus
 from drink.model.errors import HTTP_STATUS
@@ -47,7 +48,9 @@ def enum_arg(cls, raw, name):
         raise DrinkError(ErrorCode.INVALID_ARGUMENT, f"{name} 取值不正确：{raw}") from None
 
 
-def create_app(system: System, *, demo: bool = True) -> Flask:
+def create_app(system: System, *, demo: bool = True, public_url: str | None = None) -> Flask:
+    """public_url：手机能访问到的本机地址（如 http://192.168.1.5:3000），用于演示收银台二维码。
+    不传则用浏览器访问时的地址。"""
     app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
     app.json.ensure_ascii = False
     app.config["SYSTEM"] = system
@@ -75,11 +78,29 @@ def create_app(system: System, *, demo: bool = True) -> Flask:
     def admin_page():
         return send_from_directory(STATIC_DIR, "admin.html")
 
+    @app.get("/pay/<order_id>")
+    def demo_cashier_page(order_id):
+        """手机扫演示二维码后打开的“演示收银台”。"""
+        return send_from_directory(STATIC_DIR, "pay.html")
+
     # ---------------- 通用 ----------------
     @api.get("/config")
     def config():
         return ok({"demo": demo, "machine_id": s.machine.machine_id,
-                   "payment_method": s.payment.method})
+                   "payment_method": s.payment.method,
+                   "pay_base_url": (public_url or request.host_url).rstrip("/")})
+
+    @api.get("/qr.svg")
+    def qr_svg():
+        import segno
+
+        text = request.args.get("text", "")
+        if not text or len(text) > 600:
+            raise DrinkError(ErrorCode.INVALID_ARGUMENT, "text 不能为空，且不超过 600 个字符")
+        buf = io.BytesIO()
+        segno.make(text, error="m").save(buf, kind="svg", scale=8, border=2, dark="#233b34", xmldecl=False)
+        return Response(buf.getvalue(), mimetype="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=3600"})
 
     # ---------------- 顾客 ----------------
     @api.get("/menu")

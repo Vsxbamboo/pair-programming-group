@@ -1,10 +1,7 @@
 """PaymentGateway 契约测试。负责人：B（销售端）。
 
-MockPayment 已完成；接支付宝沙箱后，设置环境变量 ALIPAY_APP_ID 等即可让 alipay 这一组也跑起来
-（需要联网和手动扫码的部分不在这里测）。
+这里测 MockPayment；支付宝沙箱实现的离线测试在 test_alipay.py。
 """
-import os
-
 import pytest
 
 from drink.model import DrinkError, ErrorCode, PaymentStatus
@@ -60,8 +57,3 @@ def test_refund_requires_success(pay):
     pay.create("O1", 1400, "x")
     assert err(pay.refund, "O1", 1400) == ErrorCode.INVALID_STATE
 
-
-def test_alipay_configured():
-    if not os.environ.get("ALIPAY_APP_ID"):
-        pytest.skip("未配置支付宝沙箱（加分项）")
-    pytest.fail("TODO(B)：配置好沙箱后，在这里补充 AlipaySandboxPayment 的自动化测试")

@@ -16,6 +16,16 @@ pytest                             # 跑测试，最后会打印每个人的进�
 
 Windows 也可以直接双击 `start.bat`。
 
+常用启动参数：
+
+```bash
+python run.py --lan                 # 手机和电脑连同一 Wi-Fi，可扫付款码打开“演示收银台”
+python run.py --public-url http://10.0.0.5:3000   # 自动检测的 IP 不对时（开了代理 / 虚拟机网卡），手动指定
+python run.py --payment alipay      # 用支付宝沙箱收款（先按 docs/07 配置）
+python run.py --real all            # 全部使用组员的正式实现
+python run.py --open --kiosk        # 全屏，模拟售货机屏幕
+```
+
 ## 分工
 
 | | 负责 | 代码 |
@@ -44,3 +54,4 @@ Windows 也可以直接双击 `start.bat`。
 | [04 接口契约](docs/04-接口契约.md) | Python 接口、HTTP 接口与 JSON 示例、修改流程 |
 | [05 测试计划](docs/05-测试计划.md) | 怎么跑测试、需求与测试对照、界面验收清单 |
 | [06 分工与里程碑](docs/06-分工与里程碑.md) | 每人任务、自由发挥范围、对应课程活动的时间线 |
+| [07 支付宝沙箱配置](docs/07-支付宝沙箱配置.md) | 开通沙箱、生成密钥、填配置、扫码联调 |

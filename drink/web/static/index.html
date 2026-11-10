@@ -2,132 +2,136 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>一杯 · 自助饮料机</title>
   <link rel="stylesheet" href="/static/css/theme.css">
   <link rel="stylesheet" href="/static/css/kiosk.css">
   <script type="module" src="/static/js/kiosk.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <span class="brand"><span class="brand-mark">杯</span><span>一杯<span class="brand-en">YIBEI / DRINK LAB</span></span></span>
-    <div class="topbar-right">
-      <span id="mode-pill" class="pill" hidden><i></i><span></span></span>
-      <span id="machine-pill" class="pill"><i></i><span>连接中…</span></span>
-    </div>
-  </header>
-
-  <main class="shell">
-    <section class="intro">
-      <div>
-        <p class="eyebrow">MADE BY YOU, MIXED FOR YOU</p>
-        <h1>一杯，<span>刚刚好。</span></h1>
-        <p class="sub">选你喜欢的食材，把今天调成喜欢的味道。</p>
+  <!-- 售货机触摸屏：按 10 寸竖屏（800×1280）设计，界面随屏幕整体缩放。 -->
+  <div class="app">
+    <header class="bar">
+      <span class="brand"><span class="brand-mark">杯</span><span>一杯<span class="brand-en">YIBEI / DRINK LAB</span></span></span>
+      <div class="bar-right">
+        <span id="mode-pill" class="pill" hidden><i></i><span>演示模式</span></span>
+        <span id="machine-pill" class="pill"><i></i><span>连接中…</span></span>
       </div>
-      <div class="edition">自助调饮台 <b id="machine-no">01</b><span>每单现调一杯</span></div>
-    </section>
+    </header>
 
     <ol class="steps" aria-label="点单流程">
-      <li data-step="0"><b>01</b>自选配方</li>
-      <li data-step="1"><b>02</b>扫码付款</li>
-      <li data-step="2"><b>03</b>现调取杯</li>
+      <li data-step="0"><b>1</b>选饮品</li>
+      <li data-step="1"><b>2</b>定制</li>
+      <li data-step="2"><b>3</b>付款</li>
+      <li data-step="3"><b>4</b>取杯</li>
     </ol>
 
-    <div class="workspace">
-      <section class="configuration" aria-label="饮料配置">
-        <div id="paused" class="paused" hidden role="alert">
-          <div class="paused-card">
-            <div class="icon">!</div>
-            <h2>暂停服务</h2>
-            <p id="paused-reason">机器正在维护，请稍后再来。</p>
-          </div>
+    <main class="screen">
+      <!-- 1 选饮品 -->
+      <section id="screen-menu" class="view" hidden>
+        <div class="hero">
+          <p class="eyebrow">MADE BY YOU, MIXED FOR YOU</p>
+          <h1>今天想喝点<span>什么？</span></h1>
         </div>
-
-        <fieldset id="config-fields" disabled>
-          <section class="section">
-            <div class="section-title"><h2><span>01</span>选一款基底</h2><small>必选一款</small></div>
-            <div id="base-options" class="base-grid"></div>
-          </section>
-
-          <section class="section">
-            <div class="section-title"><h2><span>02</span>加一点快乐</h2><small id="addon-hint">可多选，也可以不加</small></div>
-            <div id="addon-options" class="addon-grid"></div>
-          </section>
-
-          <section class="section preferences">
-            <div>
-              <h2 style="margin-bottom:16px"><span>03</span>你的专属口感</h2>
-              <fieldset class="option-group"><legend>杯型</legend><div id="size-options" class="segments"></div></fieldset>
-              <fieldset class="option-group"><legend>温度</legend><div id="temperature-options" class="segments"></div></fieldset>
-              <p id="temperature-hint" class="hint"></p>
-              <fieldset class="option-group"><legend>甜度</legend><div id="sugar-options" class="segments"></div></fieldset>
-            </div>
-            <aside class="tips">
-              <span>大家都在喝</span>
-              <div id="recommendations" class="rec-list"></div>
-            </aside>
-          </section>
-        </fieldset>
+        <div id="base-options" class="base-grid"></div>
+        <div class="recs">
+          <h2>大家都在喝</h2>
+          <div id="recommendations" class="rec-row"></div>
+        </div>
       </section>
 
-      <aside class="order-card" aria-label="订单">
-        <div class="order-heading"><h2>你的这一杯</h2><span>YOUR MIX</span></div>
-        <div class="drink-stage" aria-hidden="true">
-          <span class="orbit"></span><span class="orbit orbit-two"></span><span class="spark">✦</span>
+      <!-- 2 定制 -->
+      <section id="screen-custom" class="view" hidden>
+        <div class="custom-head">
+          <button id="back" type="button" class="back">‹ 换一款</button>
+          <div class="custom-drink">
+            <span id="custom-swatch" class="swatch"></span>
+            <div><h1 id="custom-name"></h1><p id="custom-desc"></p></div>
+          </div>
+        </div>
+        <div class="group"><h2>杯型</h2><div id="size-options" class="options cols-2"></div></div>
+        <div class="group"><h2>温度</h2><div id="temperature-options" class="options cols-3"></div><p id="temperature-hint" class="hint"></p></div>
+        <div class="group"><h2>甜度</h2><div id="sugar-options" class="options cols-4"></div></div>
+        <div class="group"><h2>加料<small id="addon-hint">可多选，也可以不加</small></h2><div id="addon-options" class="options cols-3"></div></div>
+      </section>
+
+      <!-- 3 付款 -->
+      <section id="screen-pay" class="view center" hidden>
+        <h1>请扫码付款</h1>
+        <p id="pay-hint" class="lead"></p>
+        <div class="qr-card">
+          <img id="qr" alt="付款二维码" width="300" height="300">
+          <div class="qr-amount"><span>应付</span><strong id="pay-amount"></strong></div>
+          <div id="pay-lines" class="pay-lines"></div>
+        </div>
+        <div class="countdown" id="countdown">剩余 <b id="countdown-sec">120</b> 秒</div>
+        <div class="countdown-bar"><i id="countdown-bar"></i></div>
+        <p id="pay-note" class="note"></p>
+        <div id="demo-pay" class="demo-pay" hidden>
+          <span>没有手机？</span>
+          <button id="demo-pay-ok" type="button" class="btn ghost small">模拟付款成功</button>
+          <button id="demo-pay-fail" type="button" class="btn ghost small">模拟支付失败</button>
+        </div>
+      </section>
+
+      <!-- 4 制作中 -->
+      <section id="screen-making" class="view center" hidden>
+        <div class="stage">
           <div id="cup" class="cup">
             <div id="steam" class="steam" hidden><i></i><i></i><i></i></div>
             <div class="straw"></div>
             <div class="lid"></div>
             <div class="cup-body">
-              <div id="liquid" class="liquid"></div>
+              <div class="liquid"></div>
               <div id="ice" class="ice" hidden><i></i><i></i><i></i></div>
               <div class="cup-label">一杯<small>JUST RIGHT.</small></div>
               <div id="toppings" class="toppings"></div>
             </div>
           </div>
-          <span id="stage-caption" class="stage-caption">FRESHLY MIXED</span>
         </div>
+        <h1>正在为你现调</h1>
+        <p id="making-step" class="lead">准备中</p>
+        <div class="progress"><i id="progress-bar"></i></div>
+        <p id="making-pct" class="note">0%</p>
+      </section>
 
-        <div class="order-content">
-          <h3 id="drink-name">正在载入</h3>
-          <p id="recipe-text" class="recipe"></p>
-          <div id="line-items" class="line-items"></div>
-          <div class="total"><span id="price-label">合计</span><strong id="total">—</strong></div>
-
-          <div id="status-box" class="status-box" role="status" aria-live="polite" aria-atomic="true">
-            <b id="status-title">正在载入菜单…</b>
-            <p id="status-message"></p>
-          </div>
-
-          <div id="pay-panel" class="pay-panel" hidden>
-            <div class="qr-wrap"><div id="qr"></div><span class="qr-badge">杯</span></div>
-            <p id="qr-note" class="qr-note"></p>
-            <div id="countdown" class="countdown">剩余 <b id="countdown-sec">120</b> 秒</div>
-            <div class="countdown-bar"><i id="countdown-bar"></i></div>
-            <div id="demo-pay" class="demo-pay" hidden>
-              <button id="demo-pay-ok" type="button" class="btn">模拟扫码付款</button>
-              <button id="demo-pay-fail" type="button" class="btn ghost">模拟支付失败</button>
-            </div>
-          </div>
-
-          <div id="progress-panel" class="progress-panel" hidden>
-            <div class="progress-track"><i id="progress-bar"></i></div>
-            <div class="progress-meta"><span id="progress-step">准备中</span><span id="progress-num">0%</span></div>
-          </div>
-
-          <div id="order-id" class="order-id"></div>
-          <button id="primary" type="button" class="primary" disabled>请稍候</button>
-          <button id="secondary" type="button" class="secondary-action" hidden></button>
-          <p id="payment-note" class="payment-note"></p>
+      <!-- 5 结果：完成 / 失败 / 取消 / 超时 -->
+      <section id="screen-result" class="view center" hidden>
+        <div id="result-icon" class="result-icon">✓</div>
+        <h1 id="result-title"></h1>
+        <p id="result-text" class="lead"></p>
+        <p id="result-order" class="note"></p>
+        <div class="result-actions">
+          <button id="result-primary" type="button" class="btn big"></button>
+          <button id="result-secondary" type="button" class="btn ghost big" hidden></button>
         </div>
-      </aside>
-    </div>
+      </section>
 
-    <footer>
-      <span>一杯 YIBEI — 简单一点，好喝一点。</span>
-      <span><span id="footer-machine"></span> <a id="admin-link" href="/admin" hidden>维护入口</a></span>
+      <section id="screen-loading" class="view center">
+        <div class="result-icon muted"><span class="spinner"></span></div>
+        <h1 id="loading-title">正在准备…</h1>
+        <p id="loading-text" class="lead"></p>
+      </section>
+    </main>
+
+    <!-- 底部操作栏（定制、付款页） -->
+    <footer id="action-bar" class="action-bar" hidden>
+      <div class="summary">
+        <strong id="sum-name"></strong>
+        <span id="sum-detail"></span>
+      </div>
+      <div class="sum-price"><span id="sum-label">合计</span><strong id="sum-total">—</strong></div>
+      <button id="primary" type="button" class="btn big primary"></button>
+      <p id="bar-message" class="bar-message" role="status" aria-live="polite"></p>
     </footer>
-  </main>
+
+    <div id="paused" class="paused" hidden role="alert">
+      <div class="result-icon bad">!</div>
+      <h1>暂停服务</h1>
+      <p id="paused-reason" class="lead">机器正在维护，请稍后再来。</p>
+    </div>
+  </div>
+  <a id="admin-link" class="admin-link" href="/admin" hidden>维护</a>
   <noscript>请启用 JavaScript 以使用饮料机。</noscript>
 </body>
 </html>

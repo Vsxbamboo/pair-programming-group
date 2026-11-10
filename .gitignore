@@ -10,3 +10,5 @@ data/
 *.key
 .idea/
 .vscode/
+alipay.json
+keys/
