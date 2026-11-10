@@ -12,12 +12,34 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
+import sys
 import threading
 import webbrowser
 from pathlib import Path
 
-from drink.web.api import create_app
-from drink.wiring import COMPONENTS, OWNERS, build
+ROOT = Path(__file__).resolve().parent
+
+
+def _relaunch_in_venv() -> None:
+    """当前 Python 没装 Flask 时，自动改用项目里的 .venv 重新启动。"""
+    try:
+        import flask  # noqa: F401
+        return
+    except ImportError:
+        pass
+    for candidate in (ROOT / ".venv" / "Scripts" / "python.exe", ROOT / ".venv" / "bin" / "python.exe",
+                      ROOT / ".venv" / "bin" / "python"):
+        if candidate.exists() and candidate.resolve() != Path(sys.executable).resolve():
+            sys.exit(subprocess.call([str(candidate), str(ROOT / "run.py"), *sys.argv[1:]]))
+    sys.exit("没有找到 Flask。请先在项目目录运行：\n"
+             "  python -m venv .venv\n"
+             "  .venv 里的 python -m pip install -r requirements-dev.txt")
+
+
+_relaunch_in_venv()
+
+from drink.web.api import create_app  # noqa: E402
+from drink.wiring import COMPONENTS, OWNERS, build  # noqa: E402
 
 EDGE_PATHS = [
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
